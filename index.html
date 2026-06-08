@@ -4577,16 +4577,12 @@ function MetronomeView(_ref24) {
     setSubdivId = _useState24[1];
   var _useState25 = useState(true),
     _useState26 = _slicedToArray(_useState25, 2),
-    voiceOn = _useState26[0],
-    setVoiceOn = _useState26[1];
-  var _useState27 = useState(true),
+    countInOn = _useState26[0],
+    setCountInOn = _useState26[1];
+  var _useState27 = useState(false),
     _useState28 = _slicedToArray(_useState27, 2),
-    countInOn = _useState28[0],
-    setCountInOn = _useState28[1];
-  var _useState29 = useState(false),
-    _useState30 = _slicedToArray(_useState29, 2),
-    counting = _useState30[0],
-    setCounting = _useState30[1];
+    counting = _useState28[0],
+    setCounting = _useState28[1];
   var speech = useSpeech(speechLang);
   var TM = function TM(key) {
     return t(appLang || "de-DE", key);
@@ -4730,23 +4726,6 @@ function MetronomeView(_ref24) {
       letterSpacing: "0.08em"
     }
   }, "COUNT IN"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      setVoiceOn(function (v) {
-        return !v;
-      });
-    },
-    style: {
-      padding: "4px 8px",
-      borderRadius: 12,
-      border: "1px solid " + (voiceOn ? "#4caf80" : "#222"),
-      background: voiceOn ? "#4caf8022" : "transparent",
-      color: voiceOn ? "#4caf80" : "#333",
-      fontSize: 9,
-      cursor: "pointer",
-      fontFamily: "Inter,system-ui,sans-serif",
-      letterSpacing: "0.08em"
-    }
-  }, "STIMME"), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       setSheet(sheet === "lang" ? null : "lang");
     },
@@ -4919,7 +4898,7 @@ function MetronomeView(_ref24) {
         metro.toggle();
         speech.cancel();
         setCounting(false);
-      } else if (countInOn && voiceOn) {
+      } else if (countInOn) {
         setCounting(true);
         speech.countIn(Number(bpm), metro.beatsPerBar, 1, function () {
           setCounting(false);
@@ -5470,42 +5449,42 @@ function SetlistView(_ref26) {
     speechLang = _ref26.speechLang,
     appLang = _ref26.appLang;
   var speech = useSpeech(speechLang);
-  var _useState31 = useState(true),
-    _useState32 = _slicedToArray(_useState31, 2),
-    voiceOn = _useState32[0],
-    setVoiceOn = _useState32[1];
+  var _useState29 = useState(true),
+    _useState30 = _slicedToArray(_useState29, 2),
+    voiceOn = _useState30[0],
+    setVoiceOn = _useState30[1];
   var TS = function TS(key) {
     return t(appLang || "de-DE", key);
   };
   // ── Bands ──────────────────────────────────────────────────────────────
-  var _useState33 = useState([{
+  var _useState31 = useState([{
       id: "b1",
       name: "Meine Band",
       color: "#e040fb",
       emoji: "🎸"
     }]),
+    _useState32 = _slicedToArray(_useState31, 2),
+    bands = _useState32[0],
+    setBands = _useState32[1];
+  var _useState33 = useState("b1"),
     _useState34 = _slicedToArray(_useState33, 2),
-    bands = _useState34[0],
-    setBands = _useState34[1];
-  var _useState35 = useState("b1"),
+    activeBand = _useState34[0],
+    setActiveBand = _useState34[1];
+  var _useState35 = useState(false),
     _useState36 = _slicedToArray(_useState35, 2),
-    activeBand = _useState36[0],
-    setActiveBand = _useState36[1];
-  var _useState37 = useState(false),
+    bandSheet = _useState36[0],
+    setBandSheet = _useState36[1];
+  var _useState37 = useState(null),
     _useState38 = _slicedToArray(_useState37, 2),
-    bandSheet = _useState38[0],
-    setBandSheet = _useState38[1];
-  var _useState39 = useState(null),
-    _useState40 = _slicedToArray(_useState39, 2),
-    editBand = _useState40[0],
-    setEditBand = _useState40[1]; // band id being edited
+    editBand = _useState38[0],
+    setEditBand = _useState38[1]; // band id being edited
   // ── Songs (per band) ───────────────────────────────────────────────────
-  var _useState41 = useState({
+  var _useState39 = useState({
       "b1": []
     }),
-    _useState42 = _slicedToArray(_useState41, 2),
-    allSongs = _useState42[0],
-    setAllSongs = _useState42[1];
+    _useState40 = _slicedToArray(_useState39, 2),
+    allSongs = _useState40[0],
+    setAllSongs = _useState40[1];
   var songs = allSongs[activeBand] || [];
   function setSongs(fn) {
     setAllSongs(function (prev) {
@@ -5514,18 +5493,18 @@ function SetlistView(_ref26) {
       return Object.assign({}, prev, _defineProperty({}, activeBand, next));
     });
   }
+  var _useState41 = useState(null),
+    _useState42 = _slicedToArray(_useState41, 2),
+    activeSong = _useState42[0],
+    setActiveSong = _useState42[1];
   var _useState43 = useState(null),
     _useState44 = _slicedToArray(_useState43, 2),
-    activeSong = _useState44[0],
-    setActiveSong = _useState44[1];
+    editSong = _useState44[0],
+    setEditSong = _useState44[1];
   var _useState45 = useState(null),
     _useState46 = _slicedToArray(_useState45, 2),
-    editSong = _useState46[0],
-    setEditSong = _useState46[1];
-  var _useState47 = useState(null),
-    _useState48 = _slicedToArray(_useState47, 2),
-    dragOver = _useState48[0],
-    setDragOver = _useState48[1];
+    dragOver = _useState46[0],
+    setDragOver = _useState46[1];
   var fileRef = useRef();
   var BAND_COLORS = ["#e040fb", "#40c4ff", "#69ff47", "#ff9040", "#7c4dff", "#ff4081", "#00e5ff", "#ffeb3b"];
   var BAND_EMOJIS = ["🎸", "🥁", "🎹", "🎺", "🎻", "🎤", "🎷", "🎵", "⚡", "🔥", "💀", "🌟"];
@@ -7659,14 +7638,14 @@ function WarmupSheet(_ref29) {
     onAddMeasure = _ref29.onAddMeasure,
     bpm = _ref29.bpm,
     setBpm = _ref29.setBpm;
+  var _useState47 = useState(null),
+    _useState48 = _slicedToArray(_useState47, 2),
+    selCat = _useState48[0],
+    setSelCat = _useState48[1];
   var _useState49 = useState(null),
     _useState50 = _slicedToArray(_useState49, 2),
-    selCat = _useState50[0],
-    setSelCat = _useState50[1];
-  var _useState51 = useState(null),
-    _useState52 = _slicedToArray(_useState51, 2),
-    practicing = _useState52[0],
-    setPracticing = _useState52[1]; // rudiment id being practiced
+    practicing = _useState50[0],
+    setPracticing = _useState50[1]; // rudiment id being practiced
 
   var cats = RUDIMENTS.map(function (r) {
     return r.cat;
@@ -8776,87 +8755,87 @@ function KitConfig(_ref31) {
   })))));
 }
 function DrumWriter() {
-  var _useState53 = useState(function () {
+  var _useState51 = useState(function () {
       return [newMeasure("4/4", {}, "")];
     }),
+    _useState52 = _slicedToArray(_useState51, 2),
+    measures = _useState52[0],
+    setMeasures = _useState52[1];
+  var _useState53 = useState("snare"),
     _useState54 = _slicedToArray(_useState53, 2),
-    measures = _useState54[0],
-    setMeasures = _useState54[1];
-  var _useState55 = useState("snare"),
+    selInstr = _useState54[0],
+    setSelInstr = _useState54[1];
+  var _useState55 = useState("normal"),
     _useState56 = _slicedToArray(_useState55, 2),
-    selInstr = _useState56[0],
-    setSelInstr = _useState56[1];
-  var _useState57 = useState("normal"),
+    selAccent = _useState56[0],
+    setSelAccent = _useState56[1];
+  var _useState57 = useState(DEFAULT_NV_ID),
     _useState58 = _slicedToArray(_useState57, 2),
-    selAccent = _useState58[0],
-    setSelAccent = _useState58[1];
-  var _useState59 = useState(DEFAULT_NV_ID),
+    selNVId = _useState58[0],
+    setSelNVId = _useState58[1];
+  var _useState59 = useState(4),
     _useState60 = _slicedToArray(_useState59, 2),
-    selNVId = _useState60[0],
-    setSelNVId = _useState60[1];
-  var _useState61 = useState(4),
+    measPerRow = _useState60[0],
+    setMPR = _useState60[1];
+  var _useState61 = useState("Untitled"),
     _useState62 = _slicedToArray(_useState61, 2),
-    measPerRow = _useState62[0],
-    setMPR = _useState62[1];
-  var _useState63 = useState("Untitled"),
+    title = _useState62[0],
+    setTitle = _useState62[1];
+  var _useState63 = useState(""),
     _useState64 = _slicedToArray(_useState63, 2),
-    title = _useState64[0],
-    setTitle = _useState64[1];
-  var _useState65 = useState(""),
+    composer = _useState64[0],
+    setComposer = _useState64[1];
+  var _useState65 = useState(120),
     _useState66 = _slicedToArray(_useState65, 2),
-    composer = _useState66[0],
-    setComposer = _useState66[1];
-  var _useState67 = useState(120),
-    _useState68 = _slicedToArray(_useState67, 2),
-    bpm = _useState68[0],
-    setBpm = _useState68[1];
+    bpm = _useState66[0],
+    setBpm = _useState66[1];
   var metro = useMetronome(bpm);
-  var _useState69 = useState(900),
+  var _useState67 = useState(900),
+    _useState68 = _slicedToArray(_useState67, 2),
+    scoreW = _useState68[0],
+    setScoreW = _useState68[1];
+  var _useState69 = useState(null),
     _useState70 = _slicedToArray(_useState69, 2),
-    scoreW = _useState70[0],
-    setScoreW = _useState70[1];
-  var _useState71 = useState(null),
+    zoomedId = _useState70[0],
+    setZoomedId = _useState70[1];
+  var _useState71 = useState(false),
     _useState72 = _slicedToArray(_useState71, 2),
-    zoomedId = _useState72[0],
-    setZoomedId = _useState72[1];
+    presetOpen = _useState72[0],
+    setPresetOpen = _useState72[1];
   var _useState73 = useState(false),
     _useState74 = _slicedToArray(_useState73, 2),
-    presetOpen = _useState74[0],
-    setPresetOpen = _useState74[1];
+    orchOpen = _useState74[0],
+    setOrchOpen = _useState74[1];
   var _useState75 = useState(false),
     _useState76 = _slicedToArray(_useState75, 2),
-    orchOpen = _useState76[0],
-    setOrchOpen = _useState76[1];
+    metroView = _useState76[0],
+    setMetroView = _useState76[1];
   var _useState77 = useState(false),
     _useState78 = _slicedToArray(_useState77, 2),
-    metroView = _useState78[0],
-    setMetroView = _useState78[1];
+    setlistView = _useState78[0],
+    setSetlistView = _useState78[1];
   var _useState79 = useState(false),
     _useState80 = _slicedToArray(_useState79, 2),
-    setlistView = _useState80[0],
-    setSetlistView = _useState80[1];
+    printView = _useState80[0],
+    setPrintView = _useState80[1];
   var _useState81 = useState(false),
     _useState82 = _slicedToArray(_useState81, 2),
-    printView = _useState82[0],
-    setPrintView = _useState82[1];
+    ioSheet = _useState82[0],
+    setIoSheet = _useState82[1];
   var _useState83 = useState(false),
     _useState84 = _slicedToArray(_useState83, 2),
-    ioSheet = _useState84[0],
-    setIoSheet = _useState84[1];
-  var _useState85 = useState(false),
-    _useState86 = _slicedToArray(_useState85, 2),
-    kitOpen = _useState86[0],
-    setKitOpen = _useState86[1];
-  var _useState87 = useState(function () {
+    kitOpen = _useState84[0],
+    setKitOpen = _useState84[1];
+  var _useState85 = useState(function () {
       try {
         var saved = localStorage.getItem("dw_kit");
         if (saved) return JSON.parse(saved);
       } catch (e) {}
       return DEFAULT_KIT;
     }),
-    _useState88 = _slicedToArray(_useState87, 2),
-    kit = _useState88[0],
-    setKit = _useState88[1];
+    _useState86 = _slicedToArray(_useState85, 2),
+    kit = _useState86[0],
+    setKit = _useState86[1];
   var activeInstruments = kit.filter(function (i) {
     return i.enabled;
   }).sort(function (a, b) {
@@ -8864,38 +8843,38 @@ function DrumWriter() {
   });
   // Update global INSTRUMENTS so all components can access it
   INSTRUMENTS = activeInstruments;
-  var _useState89 = useState(function () {
+  var _useState87 = useState(function () {
       try {
         return !localStorage.getItem("dw_tutorial_done");
       } catch (e) {
         return true;
       }
     }),
-    _useState90 = _slicedToArray(_useState89, 2),
-    showTutorial = _useState90[0],
-    setShowTutorial = _useState90[1];
+    _useState88 = _slicedToArray(_useState87, 2),
+    showTutorial = _useState88[0],
+    setShowTutorial = _useState88[1];
   function completeTutorial() {
     try {
       localStorage.setItem("dw_tutorial_done", "1");
     } catch (e) {}
     setShowTutorial(false);
   }
-  var _useState91 = useState(false),
+  var _useState89 = useState(false),
+    _useState90 = _slicedToArray(_useState89, 2),
+    warmupOpen = _useState90[0],
+    setWarmupOpen = _useState90[1];
+  var _useState91 = useState(function () {
+      return detectLang();
+    }),
     _useState92 = _slicedToArray(_useState91, 2),
-    warmupOpen = _useState92[0],
-    setWarmupOpen = _useState92[1];
+    speechLang = _useState92[0],
+    setSpeechLang = _useState92[1];
   var _useState93 = useState(function () {
       return detectLang();
     }),
     _useState94 = _slicedToArray(_useState93, 2),
-    speechLang = _useState94[0],
-    setSpeechLang = _useState94[1];
-  var _useState95 = useState(function () {
-      return detectLang();
-    }),
-    _useState96 = _slicedToArray(_useState95, 2),
-    appLang = _useState96[0],
-    setAppLang = _useState96[1];
+    appLang = _useState94[0],
+    setAppLang = _useState94[1];
   var T = function T(key) {
     return t(appLang, key);
   };
