@@ -78,70 +78,6 @@ var MIN_BEAT_W = 14;
 function staffLineY(i) {
   return STOP + i * LS;
 }
-var INSTRUMENTS = [{
-  id: "crash",
-  name: "Crash",
-  isX: true,
-  isDiamond: false,
-  sy: -1.5,
-  voice: 1
-}, {
-  id: "hihat",
-  name: "Hi-Hat",
-  isX: true,
-  isDiamond: false,
-  sy: -0.5,
-  voice: 1
-}, {
-  id: "ride",
-  name: "Ride",
-  isX: true,
-  isDiamond: false,
-  sy: 0,
-  voice: 1
-}, {
-  id: "tom1",
-  name: "Tom 1",
-  isX: false,
-  isDiamond: false,
-  sy: 0.5,
-  voice: 1
-}, {
-  id: "tom2",
-  name: "Tom 2",
-  isX: false,
-  isDiamond: false,
-  sy: 1,
-  voice: 1
-}, {
-  id: "snare",
-  name: "Snare",
-  isX: false,
-  isDiamond: false,
-  sy: 1.5,
-  voice: 1
-}, {
-  id: "floor",
-  name: "Floor Tom",
-  isX: false,
-  isDiamond: false,
-  sy: 3.5,
-  voice: 1
-}, {
-  id: "kick",
-  name: "Kick",
-  isX: false,
-  isDiamond: false,
-  sy: 4.5,
-  voice: 2
-}, {
-  id: "hihat_f",
-  name: "HH Pedal",
-  isX: true,
-  isDiamond: true,
-  sy: 5.5,
-  voice: 2
-}];
 var NOTE_VALUES = [{
   id: "1",
   label: "Ganze",
@@ -4372,86 +4308,53 @@ function useSpeech(langId) {
     var totalBeats = (bars || 1) * bpb;
     var timers = [];
     if (synthRef.current) synthRef.current.cancel();
-
-    // Web Audio context for precise click timing
     var AC = window.AudioContext || window.webkitAudioContext;
     var ctx = AC ? new AC() : null;
-    if (ctx && ctx.state === "suspended") ctx.resume();
-
-    // Pre-warm speech engine with silent utterance
-    if (synthRef.current) {
-      var warmup = new SpeechSynthesisUtterance(" ");
-      warmup.volume = 0;
-      synthRef.current.speak(warmup);
+    function doStart() {
+      if (!ctx) return;
+      var startTime = ctx.currentTime + 0.05;
+      // Schedule ALL beeps precisely using Web Audio clock
+      for (var b = 0; b < totalBeats; b++) {
+        var t = startTime + b * (beatMs / 1000);
+        var isAccent = b % bpb === 0;
+        (function (when, accent) {
+          try {
+            var o = ctx.createOscillator();
+            var g = ctx.createGain();
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.type = "sine";
+            o.frequency.value = accent ? 1400 : 900;
+            g.gain.setValueAtTime(accent ? 1.0 : 0.6, when);
+            g.gain.exponentialRampToValueAtTime(0.001, when + 0.08);
+            o.start(when);
+            o.stop(when + 0.09);
+          } catch (e) {}
+          // Visual countdown - sync to audio time
+          var delayMs = (when - ctx.currentTime) * 1000;
+          timers.push(setTimeout(function () {
+            if (typeof window.__dwCountBeat === "function") window.__dwCountBeat(accent ? 1 : b % bpb + 1);
+          }, Math.max(0, delayMs)));
+        })(t, isAccent);
+      }
+      // Done
+      timers.push(setTimeout(function () {
+        if (ctx) try {
+          ctx.close();
+        } catch (e) {}
+        if (typeof window.__dwCountBeat === "function") window.__dwCountBeat(0);
+        if (onDone) onDone();
+      }, totalBeats * beatMs + 100));
     }
-
-    // Find best available voice for language
-    function getBestVoice(lang) {
-      var voices = synthRef.current ? synthRef.current.getVoices() : [];
-      // Prefer enhanced/natural voices
-      var enhanced = voices.filter(function (v) {
-        return v.lang.startsWith(lang.split("-")[0]) && (v.name.includes("Enhanced") || v.name.includes("Premium") || v.name.includes("Natural") || v.name.includes("Neural"));
-      });
-      if (enhanced.length > 0) return enhanced[0];
-      // Fallback: any matching voice
-      var match = voices.filter(function (v) {
-        return v.lang.startsWith(lang.split("-")[0]);
-      });
-      return match.length > 0 ? match[0] : null;
+    if (ctx) {
+      if (ctx.state === "suspended") ctx.resume().then(doStart);else doStart();
+    } else {
+      timers.push(setTimeout(onDone, totalBeats * beatMs + 100));
     }
-
-    // Speech latency compensation (ms) - speech starts ~80ms after .speak()
-    var SPEECH_LEAD = 80;
-    for (var b = 0; b < totalBeats; b++) {
-      (function (beat, delay) {
-        // Audio click at exact time
-        timers.push(setTimeout(function () {
-          if (ctx && ctx.state !== "closed") {
-            try {
-              var o = ctx.createOscillator();
-              var g = ctx.createGain();
-              o.connect(g);
-              g.connect(ctx.destination);
-              o.type = "sine";
-              o.frequency.value = beat % bpb === 0 ? 1400 : 1000;
-              g.gain.setValueAtTime(beat % bpb === 0 ? 0.8 : 0.5, ctx.currentTime);
-              g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
-              o.start(ctx.currentTime);
-              o.stop(ctx.currentTime + 0.07);
-            } catch (e) {}
-          }
-        }, delay));
-
-        // Speech fired SPEECH_LEAD ms early to compensate for startup latency
-        timers.push(setTimeout(function () {
-          if (synthRef.current) {
-            var langDef = getLangDef(langId);
-            var num = langDef.nums[beat % bpb];
-            var u = new SpeechSynthesisUtterance(num);
-            u.lang = langId;
-            u.rate = 1.1; // slower = more natural
-            u.pitch = beat % bpb === 0 ? 1.2 : 1.0; // beat 1 slightly higher pitch
-            u.volume = 0.9;
-            var voice = getBestVoice(langId);
-            if (voice) u.voice = voice;
-            synthRef.current.cancel();
-            synthRef.current.speak(u);
-          }
-        }, Math.max(0, delay - SPEECH_LEAD)));
-      })(b, b * beatMs);
-    }
-    timers.push(setTimeout(function () {
-      if (synthRef.current) synthRef.current.cancel();
-      if (ctx) try {
-        ctx.close();
-      } catch (e) {}
-      if (onDone) onDone();
-    }, totalBeats * beatMs + 50));
     return function () {
       timers.forEach(function (t) {
         clearTimeout(t);
       });
-      if (synthRef.current) synthRef.current.cancel();
       if (ctx) try {
         ctx.close();
       } catch (e) {}
@@ -5041,7 +4944,13 @@ function MetronomeView(_ref24) {
       justifyContent: "center",
       transition: "all 0.2s"
     }
-  }, metro.playing ? "◼" : counting ? "1…" : "▶"), /*#__PURE__*/React.createElement(CircleBtn, {
+  }, metro.playing ? "◼" : counting ? /*#__PURE__*/React.createElement("span", {
+    ref: function ref(el) {
+      if (el) window.__dwCountBeat = function (n) {
+        el.textContent = n > 0 ? String(n) : "…";
+      };
+    }
+  }, "…") : "▶"), /*#__PURE__*/React.createElement(CircleBtn, {
     size: 52,
     bg: "#103060",
     border: "#1850a0",
@@ -8374,6 +8283,498 @@ function Tutorial(_ref30) {
     }
   }, "Tutorial überspringen"));
 }
+
+// ── Kit Configuration ─────────────────────────────────────────────────────
+// Global INSTRUMENTS - updated when user saves kit
+var INSTRUMENTS = [{
+  id: "crash",
+  name: "Crash",
+  isX: true,
+  isDiamond: false,
+  sy: -1.5,
+  voice: 1
+}, {
+  id: "hihat",
+  name: "Hi-Hat",
+  isX: true,
+  isDiamond: false,
+  sy: -0.5,
+  voice: 1
+}, {
+  id: "ride",
+  name: "Ride",
+  isX: true,
+  isDiamond: false,
+  sy: 0,
+  voice: 1
+}, {
+  id: "tom1",
+  name: "Tom 1",
+  isX: false,
+  isDiamond: false,
+  sy: 0.5,
+  voice: 1
+}, {
+  id: "tom2",
+  name: "Tom 2",
+  isX: false,
+  isDiamond: false,
+  sy: 1,
+  voice: 1
+}, {
+  id: "snare",
+  name: "Snare",
+  isX: false,
+  isDiamond: false,
+  sy: 1.5,
+  voice: 1
+}, {
+  id: "floor",
+  name: "Floor Tom",
+  isX: false,
+  isDiamond: false,
+  sy: 3.5,
+  voice: 1
+}, {
+  id: "kick",
+  name: "Kick",
+  isX: false,
+  isDiamond: false,
+  sy: 4.5,
+  voice: 2
+}, {
+  id: "hihat_f",
+  name: "HH Pedal",
+  isX: true,
+  isDiamond: true,
+  sy: 5.5,
+  voice: 2
+}];
+var DEFAULT_KIT = [{
+  id: "crash",
+  name: "Crash",
+  isX: true,
+  isDiamond: false,
+  sy: -1.5,
+  voice: 1,
+  emoji: "💥",
+  enabled: true
+}, {
+  id: "hihat",
+  name: "Hi-Hat",
+  isX: true,
+  isDiamond: false,
+  sy: -0.5,
+  voice: 1,
+  emoji: "🔔",
+  enabled: true
+}, {
+  id: "ride",
+  name: "Ride",
+  isX: true,
+  isDiamond: false,
+  sy: 0,
+  voice: 1,
+  emoji: "🪘",
+  enabled: true
+}, {
+  id: "tom1",
+  name: "Tom 1",
+  isX: false,
+  isDiamond: false,
+  sy: 0.5,
+  voice: 1,
+  emoji: "🔵",
+  enabled: true
+}, {
+  id: "tom2",
+  name: "Tom 2",
+  isX: false,
+  isDiamond: false,
+  sy: 1,
+  voice: 1,
+  emoji: "🟣",
+  enabled: true
+}, {
+  id: "snare",
+  name: "Snare",
+  isX: false,
+  isDiamond: false,
+  sy: 1.5,
+  voice: 1,
+  emoji: "🥁",
+  enabled: true
+}, {
+  id: "floor",
+  name: "Floor Tom",
+  isX: false,
+  isDiamond: false,
+  sy: 3.5,
+  voice: 1,
+  emoji: "⬇",
+  enabled: true
+}, {
+  id: "kick",
+  name: "Kick",
+  isX: false,
+  isDiamond: false,
+  sy: 4.5,
+  voice: 2,
+  emoji: "👟",
+  enabled: true
+}, {
+  id: "hihat_f",
+  name: "HH Pedal",
+  isX: true,
+  isDiamond: true,
+  sy: 5.5,
+  voice: 2,
+  emoji: "👣",
+  enabled: true
+},
+// Optional extras (disabled by default)
+{
+  id: "crash2",
+  name: "Crash 2",
+  isX: true,
+  isDiamond: false,
+  sy: -2.5,
+  voice: 1,
+  emoji: "💥",
+  enabled: false
+}, {
+  id: "ride2",
+  name: "Ride Bell",
+  isX: true,
+  isDiamond: true,
+  sy: 0.2,
+  voice: 1,
+  emoji: "🔔",
+  enabled: false
+}, {
+  id: "tom3",
+  name: "Tom 3",
+  isX: false,
+  isDiamond: false,
+  sy: 1.5,
+  voice: 1,
+  emoji: "🟢",
+  enabled: false
+}, {
+  id: "cowbell",
+  name: "Cowbell",
+  isX: false,
+  isDiamond: true,
+  sy: -1,
+  voice: 1,
+  emoji: "🐄",
+  enabled: false
+}, {
+  id: "tamb",
+  name: "Tamburin",
+  isX: true,
+  isDiamond: false,
+  sy: -2,
+  voice: 1,
+  emoji: "🎵",
+  enabled: false
+}];
+function KitConfig(_ref31) {
+  var kit = _ref31.kit,
+    onSave = _ref31.onSave,
+    onClose = _ref31.onClose;
+  var localState = useState(function () {
+    return kit.map(function (i) {
+      return Object.assign({}, i);
+    });
+  });
+  var local = localState[0];
+  var setLocal = localState[1];
+  function update(id, patch) {
+    setLocal(function (prev) {
+      return prev.map(function (i) {
+        return i.id !== id ? i : Object.assign({}, i, patch);
+      });
+    });
+  }
+
+  // Note type options
+  var noteTypes = [{
+    label: "●  Normal",
+    isX: false,
+    isDiamond: false
+  }, {
+    label: "×  Kreuz",
+    isX: true,
+    isDiamond: false
+  }, {
+    label: "◇  Raute",
+    isX: false,
+    isDiamond: true
+  }, {
+    label: "⊗  Dia-X",
+    isX: true,
+    isDiamond: true
+  }];
+  var enabled = local.filter(function (i) {
+    return i.enabled;
+  });
+  var disabled = local.filter(function (i) {
+    return !i.enabled;
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 900,
+      background: "#050510",
+      display: "flex",
+      flexDirection: "column",
+      fontFamily: "Inter,system-ui,sans-serif"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#0d0020",
+      borderBottom: "1px solid #2a0045",
+      padding: "12px 16px",
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      width: 36,
+      height: 36,
+      borderRadius: "50%",
+      border: "none",
+      background: "rgba(255,255,255,0.06)",
+      color: "#a080c0",
+      cursor: "pointer",
+      fontSize: 18,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, "←"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 16,
+      fontWeight: "800",
+      color: "#f0e8ff"
+    }
+  }, "🥁 Mein Kit"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#9370b8",
+      marginTop: 1
+    }
+  }, "Instrumente und Notendarstellung anpassen")), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      onSave(local);
+      onClose();
+    },
+    style: {
+      padding: "8px 18px",
+      borderRadius: 10,
+      border: "none",
+      background: "linear-gradient(135deg,#e040fb,#7c4dff)",
+      color: "white",
+      fontSize: 13,
+      fontWeight: "700",
+      cursor: "pointer",
+      boxShadow: "0 0 16px #e040fb44"
+    }
+  }, "Speichern")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      overflowY: "auto",
+      padding: "12px 14px 32px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      color: "#e040fb",
+      letterSpacing: "0.14em",
+      textTransform: "uppercase",
+      fontWeight: "700",
+      marginBottom: 10
+    }
+  }, "Aktive Instrumente (" + enabled.length + ")"), enabled.map(function (instr) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: instr.id,
+      style: {
+        background: "#0d0020",
+        border: "1px solid #2a0045",
+        borderRadius: 12,
+        padding: "12px 14px",
+        marginBottom: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 10
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 22
+      }
+    }, instr.emoji), /*#__PURE__*/React.createElement("input", {
+      value: instr.name,
+      onChange: function onChange(e) {
+        update(instr.id, {
+          name: e.target.value
+        });
+      },
+      style: {
+        flex: 1,
+        background: "#1a0035",
+        border: "1px solid #2a0045",
+        borderRadius: 6,
+        padding: "5px 10px",
+        color: "#f0e8ff",
+        fontSize: 13,
+        outline: "none",
+        fontFamily: "Inter,system-ui,sans-serif"
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        update(instr.id, {
+          enabled: false
+        });
+      },
+      style: {
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        border: "1px solid #ff408144",
+        background: "#1a0010",
+        color: "#ff4081",
+        cursor: "pointer",
+        fontSize: 14,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }
+    }, "−")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 4,
+        flexWrap: "wrap"
+      }
+    }, noteTypes.map(function (nt) {
+      var active = instr.isX === nt.isX && instr.isDiamond === nt.isDiamond;
+      return /*#__PURE__*/React.createElement("button", {
+        key: nt.label,
+        onClick: function onClick() {
+          update(instr.id, {
+            isX: nt.isX,
+            isDiamond: nt.isDiamond
+          });
+        },
+        style: {
+          padding: "4px 10px",
+          borderRadius: 8,
+          fontSize: 10,
+          border: "1px solid " + (active ? "#e040fb" : "#2a0045"),
+          background: active ? "#e040fb22" : "#1a0035",
+          color: active ? "#e040fb" : "#9370b8",
+          cursor: "pointer",
+          fontFamily: "Inter,system-ui,sans-serif",
+          fontWeight: active ? "700" : "400"
+        }
+      }, nt.label);
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 8,
+        display: "flex",
+        alignItems: "center",
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        color: "#9370b8",
+        letterSpacing: "0.08em",
+        minWidth: 60
+      }
+    }, "POSITION"), /*#__PURE__*/React.createElement("input", {
+      type: "range",
+      min: "-3",
+      max: "6",
+      step: "0.5",
+      value: instr.sy,
+      onChange: function onChange(e) {
+        update(instr.id, {
+          sy: parseFloat(e.target.value)
+        });
+      },
+      style: {
+        flex: 1,
+        accentColor: "#e040fb"
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        color: "#e040fb",
+        minWidth: 24,
+        textAlign: "right"
+      }
+    }, instr.sy)));
+  }), disabled.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      color: "#9370b8",
+      letterSpacing: "0.14em",
+      textTransform: "uppercase",
+      fontWeight: "700",
+      marginBottom: 10,
+      marginTop: 16
+    }
+  }, "Hinzufügen"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 8
+    }
+  }, disabled.map(function (instr) {
+    return /*#__PURE__*/React.createElement("button", {
+      key: instr.id,
+      onClick: function onClick() {
+        update(instr.id, {
+          enabled: true
+        });
+      },
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "8px 12px",
+        borderRadius: 10,
+        border: "1px solid #2a0045",
+        background: "#0a001a",
+        color: "#9370b8",
+        cursor: "pointer",
+        fontFamily: "Inter,system-ui,sans-serif",
+        fontSize: 12
+      }
+    }, /*#__PURE__*/React.createElement("span", null, instr.emoji), /*#__PURE__*/React.createElement("span", null, instr.name), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#e040fb",
+        fontWeight: "700"
+      }
+    }, "+"));
+  })))));
+}
 function DrumWriter() {
   var _useState53 = useState(function () {
       return [newMeasure("4/4", {}, "")];
@@ -8442,38 +8843,59 @@ function DrumWriter() {
     _useState84 = _slicedToArray(_useState83, 2),
     ioSheet = _useState84[0],
     setIoSheet = _useState84[1];
-  var _useState85 = useState(function () {
+  var _useState85 = useState(false),
+    _useState86 = _slicedToArray(_useState85, 2),
+    kitOpen = _useState86[0],
+    setKitOpen = _useState86[1];
+  var _useState87 = useState(function () {
+      try {
+        var saved = localStorage.getItem("dw_kit");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+      return DEFAULT_KIT;
+    }),
+    _useState88 = _slicedToArray(_useState87, 2),
+    kit = _useState88[0],
+    setKit = _useState88[1];
+  var activeInstruments = kit.filter(function (i) {
+    return i.enabled;
+  }).sort(function (a, b) {
+    return a.sy - b.sy;
+  });
+  // Update global INSTRUMENTS so all components can access it
+  INSTRUMENTS = activeInstruments;
+  var _useState89 = useState(function () {
       try {
         return !localStorage.getItem("dw_tutorial_done");
       } catch (e) {
         return true;
       }
     }),
-    _useState86 = _slicedToArray(_useState85, 2),
-    showTutorial = _useState86[0],
-    setShowTutorial = _useState86[1];
+    _useState90 = _slicedToArray(_useState89, 2),
+    showTutorial = _useState90[0],
+    setShowTutorial = _useState90[1];
   function completeTutorial() {
     try {
       localStorage.setItem("dw_tutorial_done", "1");
     } catch (e) {}
     setShowTutorial(false);
   }
-  var _useState87 = useState(false),
-    _useState88 = _slicedToArray(_useState87, 2),
-    warmupOpen = _useState88[0],
-    setWarmupOpen = _useState88[1];
-  var _useState89 = useState(function () {
-      return detectLang();
-    }),
-    _useState90 = _slicedToArray(_useState89, 2),
-    speechLang = _useState90[0],
-    setSpeechLang = _useState90[1];
-  var _useState91 = useState(function () {
-      return detectLang();
-    }),
+  var _useState91 = useState(false),
     _useState92 = _slicedToArray(_useState91, 2),
-    appLang = _useState92[0],
-    setAppLang = _useState92[1];
+    warmupOpen = _useState92[0],
+    setWarmupOpen = _useState92[1];
+  var _useState93 = useState(function () {
+      return detectLang();
+    }),
+    _useState94 = _slicedToArray(_useState93, 2),
+    speechLang = _useState94[0],
+    setSpeechLang = _useState94[1];
+  var _useState95 = useState(function () {
+      return detectLang();
+    }),
+    _useState96 = _slicedToArray(_useState95, 2),
+    appLang = _useState96[0],
+    setAppLang = _useState96[1];
   var T = function T(key) {
     return t(appLang, key);
   };
@@ -9053,6 +9475,17 @@ function DrumWriter() {
     currentRepeat: zoomedMeas ? zoomedMeas.repeat : "none",
     onSetRepeat: function onSetRepeat(rv) {
       if (zoomedId) updMeas(zoomedId, "repeat", rv);
+    }
+  }), kitOpen && /*#__PURE__*/React.createElement(KitConfig, {
+    kit: kit,
+    onSave: function onSave(newKit) {
+      setKit(newKit);
+      try {
+        localStorage.setItem("dw_kit", JSON.stringify(newKit));
+      } catch (e) {}
+    },
+    onClose: function onClose() {
+      setKitOpen(false);
     }
   }), warmupOpen && /*#__PURE__*/React.createElement(WarmupSheet, {
     onClose: function onClose() {
