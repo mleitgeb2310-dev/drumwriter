@@ -603,6 +603,14 @@ function Notehead(_ref) {
       stroke: col,
       strokeWidth: 2.0
     }));
+  } else if (instr.isTriangle) {
+    var th = NOTE_R * 0.9;
+    head = /*#__PURE__*/React.createElement("polygon", {
+      points: "".concat(x, ",").concat(y - th, " ").concat(x + th * 0.9, ",").concat(y + th * 0.7, " ").concat(x - th * 0.9, ",").concat(y + th * 0.7),
+      fill: "#111",
+      stroke: "#111",
+      strokeWidth: 1
+    });
   } else if (instr.isDiamond) {
     head = /*#__PURE__*/React.createElement("polygon", {
       points: "".concat(x, ",").concat(y - NOTE_R - 1, " ").concat(x + NOTE_R + 2, ",").concat(y, " ").concat(x, ",").concat(y + NOTE_R + 1, " ").concat(x - NOTE_R - 2, ",").concat(y),
@@ -8402,6 +8410,16 @@ var DEFAULT_KIT = [{
   emoji: "👟",
   enabled: true
 }, {
+  id: "kick2",
+  name: "Kick 2",
+  isX: false,
+  isDiamond: false,
+  sy: 5.0,
+  voice: 2,
+  emoji: "👟",
+  enabled: false,
+  isDoubleKick: true
+}, {
   id: "hihat_f",
   name: "HH Pedal",
   isX: true,
@@ -8424,8 +8442,9 @@ var DEFAULT_KIT = [{
 }, {
   id: "ride2",
   name: "Ride Bell",
-  isX: true,
-  isDiamond: true,
+  isX: false,
+  isDiamond: false,
+  isTriangle: true,
   sy: 0.2,
   voice: 1,
   emoji: "🔔",
@@ -8481,19 +8500,28 @@ function KitConfig(_ref31) {
   var noteTypes = [{
     label: "●  Normal",
     isX: false,
-    isDiamond: false
+    isDiamond: false,
+    isTriangle: false
   }, {
     label: "×  Kreuz",
     isX: true,
-    isDiamond: false
+    isDiamond: false,
+    isTriangle: false
   }, {
     label: "◇  Raute",
     isX: false,
-    isDiamond: true
+    isDiamond: true,
+    isTriangle: false
   }, {
     label: "⊗  Dia-X",
     isX: true,
-    isDiamond: true
+    isDiamond: true,
+    isTriangle: false
+  }, {
+    label: "△  Dreieck",
+    isX: false,
+    isDiamond: false,
+    isTriangle: true
   }];
   var enabled = local.filter(function (i) {
     return i.enabled;
@@ -8625,7 +8653,30 @@ function KitConfig(_ref31) {
         outline: "none",
         fontFamily: "Inter,system-ui,sans-serif"
       }
-    }), /*#__PURE__*/React.createElement("button", {
+    }), instr.id === "kick" && function () {
+      var hasK2 = local.some(function (i) {
+        return i.id === "kick2" && i.enabled;
+      });
+      return /*#__PURE__*/React.createElement("button", {
+        onClick: function onClick() {
+          update("kick2", {
+            enabled: !hasK2
+          });
+        },
+        style: {
+          padding: "4px 8px",
+          borderRadius: 8,
+          fontSize: 10,
+          flexShrink: 0,
+          border: "1px solid " + (hasK2 ? "#e040fb" : "#2a0045"),
+          background: hasK2 ? "#e040fb22" : "#1a0035",
+          color: hasK2 ? "#e040fb" : "#9370b8",
+          cursor: "pointer",
+          fontFamily: "Inter,system-ui,sans-serif",
+          fontWeight: "600"
+        }
+      }, hasK2 ? "✓ 2× Kick" : "+ 2× Kick");
+    }(), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         update(instr.id, {
           enabled: false
@@ -8642,73 +8693,10 @@ function KitConfig(_ref31) {
         fontSize: 14,
         display: "flex",
         alignItems: "center",
-        justifyContent: "center"
+        justifyContent: "center",
+        flexShrink: 0
       }
-    }, "−")), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: 4,
-        flexWrap: "wrap"
-      }
-    }, noteTypes.map(function (nt) {
-      var active = instr.isX === nt.isX && instr.isDiamond === nt.isDiamond;
-      return /*#__PURE__*/React.createElement("button", {
-        key: nt.label,
-        onClick: function onClick() {
-          update(instr.id, {
-            isX: nt.isX,
-            isDiamond: nt.isDiamond
-          });
-        },
-        style: {
-          padding: "4px 10px",
-          borderRadius: 8,
-          fontSize: 10,
-          border: "1px solid " + (active ? "#e040fb" : "#2a0045"),
-          background: active ? "#e040fb22" : "#1a0035",
-          color: active ? "#e040fb" : "#9370b8",
-          cursor: "pointer",
-          fontFamily: "Inter,system-ui,sans-serif",
-          fontWeight: active ? "700" : "400"
-        }
-      }, nt.label);
-    })), /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginTop: 8,
-        display: "flex",
-        alignItems: "center",
-        gap: 8
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9,
-        color: "#9370b8",
-        letterSpacing: "0.08em",
-        minWidth: 60
-      }
-    }, "POSITION"), /*#__PURE__*/React.createElement("input", {
-      type: "range",
-      min: "-3",
-      max: "6",
-      step: "0.5",
-      value: instr.sy,
-      onChange: function onChange(e) {
-        update(instr.id, {
-          sy: parseFloat(e.target.value)
-        });
-      },
-      style: {
-        flex: 1,
-        accentColor: "#e040fb"
-      }
-    }), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9,
-        color: "#e040fb",
-        minWidth: 24,
-        textAlign: "right"
-      }
-    }, instr.sy)));
+    }, "−")));
   }), disabled.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 9,
@@ -8725,7 +8713,9 @@ function KitConfig(_ref31) {
       flexWrap: "wrap",
       gap: 8
     }
-  }, disabled.map(function (instr) {
+  }, disabled.filter(function (instr) {
+    return instr.id !== "kick2";
+  }).map(function (instr) {
     return /*#__PURE__*/React.createElement("button", {
       key: instr.id,
       onClick: function onClick() {
@@ -9277,6 +9267,24 @@ function DrumWriter() {
       boxShadow: "0 0 8px #40c4ff22"
     }
   }, "🥁 Warmup"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      setKitOpen(true);
+    },
+    style: {
+      padding: "4px 10px",
+      borderRadius: 8,
+      border: "1px solid #7c4dff44",
+      background: "#0a001a",
+      cursor: "pointer",
+      color: "#7c4dff",
+      fontFamily: "Inter,system-ui,sans-serif",
+      fontSize: 11,
+      fontWeight: "700",
+      flexShrink: 0,
+      letterSpacing: "0.04em",
+      boxShadow: "0 0 8px #7c4dff22"
+    }
+  }, "⚙ Kit"), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       setIoSheet(true);
     },
